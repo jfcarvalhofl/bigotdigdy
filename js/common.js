@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.1';
+export const APP_VERSION = '1.2';
 export const HL = [
   { id: 'yellow', hex: '#F5CF1F', fill: 'rgba(255,214,0,0.42)', label: 'Marcação', nome: 'amarelo', significado: 'marcação' },
   { id: 'orange', hex: '#F28C1E', fill: 'rgba(255,140,20,0.45)', label: 'Mais importante', nome: 'laranja', significado: 'mais importante' },
@@ -65,7 +65,9 @@ export function slug(s) {
 export async function shareFiles(files, title) {
   if (navigator.canShare && navigator.canShare({ files })) {
     try { await navigator.share({ files, title }); return 'shared'; }
-    catch (e) { if (e.name === 'AbortError') return 'aborted'; console.warn(e); }
+    catch (e) { if (e.name === 'AbortError') return 'aborted'; console.warn(e); toast('Não abriu o menu de compartilhar (' + e.name + '). Baixando o arquivo.', 4000); }
+  } else {
+    toast('Este navegador não oferece "Compartilhar" para arquivos. Baixando o arquivo.', 4000);
   }
   for (const f of files) {
     const a = h('a', { href: URL.createObjectURL(f), download: f.name });

@@ -245,6 +245,7 @@ export function setTool(t) { R.tool = t; clearSelection(); eraserCursor(null); r
 
 /* ===================== entrada (S Pen / mouse) ===================== */
 let act = null;   // ação em curso
+const noTextWarned = new Set();
 let lastHL = 'text';
 const pinch = { on: false };
 
@@ -381,8 +382,10 @@ function onDown(e) {
     ? { fill: 'none', stroke: penById(color).hex, 'stroke-width': width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }
     : { fill: 'none', stroke: hlById(color).hex, 'stroke-width': width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.42, style: 'mix-blend-mode:multiply' });
   p.svg.append(line);
-  act = { tool: type, p, points: [pt], line, color, width, straight: false, hold: 0, tap: [e.clientX, e.clientY] };
-  if (type === 'free') armHold();
+  const snap = tool === 'text';   // ferramenta de grifo numa página sem texto reconhecido
+  if (snap && !noTextWarned.has(p.n)) { noTextWarned.add(p.n); toast(p.hasText == null ? 'Página ainda carregando o texto: grifo em linha reta.' : 'Página sem texto reconhecido (escaneada): o grifo sai em linha reta.', 2600); }
+  act = { tool: type, p, points: [pt], line, color, width, straight: false, hold: 0, tap: [e.clientX, e.clientY], snap };
+  if (type === 'free' && !snap) armHold();
 }
 
 function armHold() {
@@ -427,7 +430,8 @@ function onMove(e) {
     act.points.push(pt);
     if (act.tool === 'free' && Math.hypot(pt[0] - last[0], pt[1] - last[1]) > 1.2) armHold();
   }
-  if (!act.straight) act.line.setAttribute('points', ptsAttr(act.points));
+  if (act.snap) { const a0 = act.points[0], z = act.points[act.points.length - 1]; act.line.setAttribute('points', ptsAttr([a0, [z[0], a0[1]]])); }
+  else if (!act.straight) act.line.setAttribute('points', ptsAttr(act.points));
 }
 
 async function onUp(e) {
@@ -451,7 +455,11 @@ async function onUp(e) {
   let len = 0;
   for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
   if (len < 3 && trySelect(a.p, a.tap)) return;
-  if (a.tool === 'free' && a.straight) {
+  if (a.snap && len >= 3) {
+    // linha reta na altura média do traço
+    const xs = pts.map(q => q[0]), ym = pts.reduce((t, q) => t + q[1], 0) / pts.length;
+    pts = [[Math.min(...xs), ym], [Math.max(...xs), ym]];
+  } else if (a.tool === 'free' && a.straight) {
     const s = pts[0], t = pts[pts.length - 1];
     pts = [s, [t[0], Math.abs(t[1] - s[1]) < 14 ? s[1] : t[1]]];
   }
@@ -657,7 +665,17 @@ function eraseAt(x, y) {
   const d = (ERASERS.find(z => z.id === R.eraser) || ERASERS[1]).d;
   const r = d / 2 / R.scale;
   let changed = false;
-  for (const an of R.annots.filter(q => q.page === p.n && !q.packaged)) {
+  for (const an of R.annots.filter(q => q.page === p.n && !q.packaged && q.doubt)) {
+    const b = annotBBox(an);
+    if (Math.hypot(cx - (b[2] + 7), cy - (b[1] + 2)) <= r + 6.5) {
+      R.annots = R.annots.filter(q => q !== an);
+      if (a.added.has(an.id)) a.added.delete(an.id); else a.removed.push(an);
+      const nw = { ...an, doubt: false, id: uid() };
+      R.annots.push(nw); a.added.add(nw.id); a.pages.add(p.n); changed = true;
+      (a.keep ||= new Set()).add(nw.id);   // tirar a dúvida não apaga o grifo
+    }
+  }
+  for (const an of R.annots.filter(q => q.page === p.n && !q.packaged && !a.keep?.has(q.id))) {
     const b = annotBBox(an);
     if (cx < b[0] - r || cx > b[2] + r || cy < b[1] - r || cy > b[3] + r) continue;
     let pieces = null;

@@ -3,6 +3,7 @@ import { pdfjsLib } from './pdf.js';
 import { R, sessionStart, sessionEnd, setTool, addPageEndMarker, drawMarkers, updatePanel, persistDoc, annotBBox, groupInk } from './reader.js';
 import { hlById, penById, $, h, toast, busy, fmtDate, fmtSize, slug, pad, shareFiles, posKey } from './common.js';
 import { zipSync, strToU8 } from '../vendor/fflate.js';
+import { PDFDocument, StandardFonts, rgb } from '../vendor/pdf-lib.esm.min.js';
 
 const APP_VERSION = 1;
 
@@ -261,12 +262,15 @@ async function buildPackage(s, e, marks) {
   files['LEIAME.md'] = [strToU8(readme(manifest)), { level: 6 }];
   const zip = zipSync(files);
   const d = new Date(e.date);
-  const fileName = `PSPP_${slug(doc.name)}_p${pad(s.page, 3)}-${pad(e.page, 3)}_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.zip`;
+  const fileName = `PSPP_${slug(doc.name)}_p${pad(s.page, 3)}-${pad(e.page, 3)}_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.pdf`;
+  // O Android só compartilha alguns tipos de arquivo (PDF sim, ZIP não).
+  // O pacote vai como um PDF de capa com o .zip anexado dentro.
+  const pdfBytes = await wrapInPdf(zip, manifest, out);
   const pkg = {
     id: uid(), docId: doc.id, docName: doc.name, createdAt: Date.now(), fileName,
     start: s.page, end: e.page, pagesCount: e.page - s.page + 1,
     imgPages: manifest.paginas.filter(p => p.tipo === 'imagem').length,
-    marksCount: out.length, size: zip.byteLength, blob: new Blob([zip], { type: 'application/zip' }), status: 'fila'
+    marksCount: out.length, size: pdfBytes.byteLength, blob: new Blob([pdfBytes], { type: 'application/pdf' }), status: 'fila'
   };
   await db.put('packages', pkg);
   // fecha a sessão
@@ -276,6 +280,33 @@ async function buildPackage(s, e, marks) {
   drawMarkers(); updatePanel();
   pageCanvasCache.clear();
   return pkg;
+}
+
+const latin = t => String(t).replace(/[→]/g, '->').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[—–]/g, '-').replace(/[^\x20-\x7E\xA0-\xFF]/g, '?');
+async function wrapInPdf(zip, m, marks) {
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(latin('Pacote de sessão - ' + m.documento.nome));
+  pdf.setProducer('Leitor PSPP 2027');
+  const f = await pdf.embedFont(StandardFonts.Helvetica), fb = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const page = pdf.addPage([595, 842]);
+  let y = 780;
+  const line = (t, size = 11, font = f, color = rgb(0.08, 0.13, 0.17)) => { page.drawText(latin(t), { x: 56, y, size, font, color, maxWidth: 480 }); y -= size + 9; };
+  line('Pacote de sessão', 22, fb); y -= 6;
+  line(m.documento.nome, 14, fb);
+  if (m.documento.grupo) line('Grupo: ' + m.documento.grupo);
+  line('Trecho: p. ' + m.sessao.inicio.pagina + ' até p. ' + m.sessao.fim.pagina);
+  line('Gerado em: ' + fmtDate(Date.parse(m.sessao.gerado_em), true));
+  y -= 8;
+  const c = k => marks.filter(k).length;
+  line('Marcações: ' + marks.length, 12, fb);
+  line('Amarelo (marcação): ' + c(x => x.cor === 'amarelo') + '   Laranja (mais importante): ' + c(x => x.cor === 'laranja') + '   Vermelho (atenção): ' + c(x => x.cor === 'vermelho'));
+  line('Dúvidas: ' + c(x => x.duvida) + '   Anotações à mão: ' + c(x => x.tipo === 'caneta'));
+  line('Páginas com texto: ' + m.paginas.filter(p => p.tipo === 'texto').length + '   Páginas escaneadas: ' + m.paginas.filter(p => p.tipo === 'imagem').length);
+  y -= 14;
+  line('O conteúdo completo está ANEXADO a este PDF (pacote.zip).', 11, fb, rgb(0.04, 0.43, 0.47));
+  line('Salve em Drive > PSPP2027 > _entrada e diga "processa" no Projeto PSPP 2027.', 10, f, rgb(0.36, 0.4, 0.44));
+  await pdf.attach(zip, 'pacote.zip', { mimeType: 'application/zip', description: 'Pacote de sessão do Leitor PSPP 2027', creationDate: new Date(), modificationDate: new Date() });
+  return pdf.save();
 }
 
 function readme(m) {
@@ -297,7 +328,7 @@ Processar TODO o trecho, não só o marcado; as marcações definem prioridade e
 /* ===================== exportar ===================== */
 export async function exportPackages(pkgs) {
   if (!pkgs.length) { toast('Nenhum pacote pendente.'); return; }
-  const files = pkgs.map(p => new File([p.blob], p.fileName, { type: 'application/zip' }));
+  const files = pkgs.map(p => new File([p.blob], p.fileName, { type: p.fileName.endsWith('.zip') ? 'application/zip' : 'application/pdf' }));
   const r = await shareFiles(files, 'Pacotes PSPP 2027');
   if (r === 'aborted') { toast('Exportação cancelada. Os pacotes continuam na fila.'); return; }
   for (const p of pkgs) { p.status = 'enviado'; p.sentAt = Date.now(); await db.put('packages', p); }
