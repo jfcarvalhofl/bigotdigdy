@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#13263A">
+<title>PSPP 2027 · Estudo</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ============ BIBLIOTECA ============ -->
+<section id="view-library" class="view">
+  <header class="topbar">
+    <div class="brand">PSPP 2027 · Estudo</div>
+    <div class="spacer"></div>
+    <div id="net-status" class="net"><span class="net-dot"></span><span class="net-label">Offline</span></div>
+    <label class="btn btn-accent" data-tip="Importar PDF">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Importar PDF</span>
+      <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
+    </label>
+  </header>
+  <div class="lib-body">
+    <div id="lib-groups" class="lib-groups"></div>
+    <aside class="queue" aria-label="Pacotes de sessão">
+      <div class="queue-head">
+        <h2>Pacotes de sessão</h2>
+        <span class="muted">Destino: Drive › PSPP2027 › _entrada</span>
+      </div>
+      <div id="queue-list" class="queue-list"></div>
+      <div class="queue-foot">
+        <button id="btn-export-pending" class="btn btn-dark btn-block" type="button">Exportar pendentes</button>
+        <span class="muted small">Depois, no Projeto PSPP 2027, diga “processa”.</span>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ LEITOR ============ -->
+<section id="view-reader" class="view" hidden>
+  <header class="topbar reader-bar">
+    <button id="btn-back" class="icon-btn light" type="button" aria-label="Biblioteca" data-tip="Biblioteca">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="doc-title">
+      <div id="doc-name" class="doc-name">—</div>
+      <div id="doc-page" class="doc-page">p. 1 / 1</div>
+    </div>
+
+    <div class="tools-wrap">
+      <div class="toolbar" role="toolbar" aria-label="Ferramentas">
+        <button class="tool" data-tool="text" type="button" aria-label="Grifo de texto" data-tip="Grifo de texto">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M12 5v10"/><path d="M4 20h16" stroke-width="3.2"/></svg>
+        </button>
+        <button class="tool" data-tool="free" type="button" aria-label="Marca-texto livre" data-tip="Marca-texto livre">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4l6 6-8 8H6v-6z"/><path d="M3 21h9"/></svg>
+        </button>
+        <button class="tool" data-tool="pen" type="button" aria-label="Caneta" data-tip="Caneta">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg>
+        </button>
+        <button class="tool" data-tool="eraser" type="button" aria-label="Borracha" data-tip="Borracha">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20h12"/><path d="M4.5 15.5l9-9 6 6-7 7H9z"/></svg>
+        </button>
+        <button class="tool" data-tool="bookmark" type="button" aria-label="Marcador de página" data-tip="Marcador de página">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v18l-5-4-5 4z"/></svg>
+        </button>
+        <button class="tool" data-tool="end" type="button" aria-label="Marco de fim de sessão" data-tip="Marco de fim de sessão">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg>
+        </button>
+        <span class="sep"></span>
+        <div id="swatches" class="swatches"></div>
+        <span class="sep"></span>
+        <button id="btn-doubt" class="tool" type="button" aria-label="Dúvida" data-tip="Dúvida" aria-pressed="false">
+          <span class="q">?</span>
+        </button>
+        <button id="btn-undo" class="tool" type="button" aria-label="Desfazer" data-tip="Desfazer">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="bar-right">
+      <button id="btn-panel" class="icon-btn light" type="button" aria-label="Marcações" data-tip="Marcações" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/></svg>
+        <span id="panel-count" class="badge">0</span>
+      </button>
+      <button id="btn-finish" class="btn btn-accent" type="button" data-tip="Finalizar sessão">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>
+        <span>Finalizar</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="reader-body">
+    <div id="pages" class="pages" tabindex="0">
+      <div id="pages-inner" class="pages-inner"></div>
+    </div>
+    <aside id="panel" class="panel" hidden aria-label="Marcações da sessão">
+      <div class="panel-head">
+        <h3>Marcações · <span id="panel-total">0</span></h3>
+        <button id="btn-panel-close" class="icon-btn" type="button" aria-label="Fechar" data-tip="Fechar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div id="panel-filters" class="filters"></div>
+      <div id="panel-list" class="panel-list"></div>
+    </aside>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+</section>
+
+<!-- ============ DIÁLOGOS ============ -->
+<dialog id="dlg-finish" class="dlg">
+  <form method="dialog" class="dlg-inner">
+    <h1>Finalizar sessão</h1>
+    <p id="fin-sub" class="muted"></p>
+    <div id="fin-nomarker" class="fin-nomarker" hidden>
+      <p><strong>Falta o marco de fim.</strong> Marque onde você parou para eu saber até onde vai o pacote.</p>
+      <div class="row">
+        <button value="place" class="btn btn-dark" type="submit">Colocar o marco na página</button>
+        <button value="pageend" class="btn btn-soft" type="submit">Usar o fim da página atual</button>
+      </div>
+    </div>
+    <div id="fin-content">
+      <div class="label">Trecho estudado</div>
+      <div class="range">
+        <div class="range-end"><span class="cap">INÍCIO</span><strong id="fin-start"></strong><span id="fin-start-sub" class="muted small"></span></div>
+        <div class="range-arrow"></div>
+        <div class="range-end right"><span class="cap">FIM</span><strong id="fin-end"></strong><span id="fin-end-sub" class="muted small"></span></div>
+      </div>
+      <p class="small">Vai <strong>todo o conteúdo entre os dois marcos</strong>, marcado ou não. Capítulo e seção são identificados no processamento.</p>
+      <div class="label">Suas marcações no trecho</div>
+      <div id="fin-stats" class="stats"></div>
+      <div id="fin-size" class="sizebox"></div>
+    </div>
+    <div class="dlg-actions">
+      <button value="cancel" class="btn btn-outline" type="submit">Voltar</button>
+      <div class="row">
+        <button id="fin-queue" value="queue" class="btn btn-soft" type="submit">Salvar na fila</button>
+        <button id="fin-export" value="export" class="btn btn-dark" type="submit">Exportar para o Drive</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-import" class="dlg dlg-small">
+  <form method="dialog" class="dlg-inner">
+    <h1>Importar</h1>
+    <p id="imp-files" class="muted small"></p>
+    <label for="imp-group" class="label">Grupo (matéria, provas…)</label>
+    <input id="imp-group" class="input" list="groups-list" autocomplete="off" placeholder="Ex.: Provas anteriores">
+    <datalist id="groups-list"></datalist>
+    <div class="dlg-actions">
+      <button value="cancel" class="btn btn-outline" type="submit">Cancelar</button>
+      <button value="ok" class="btn btn-dark" type="submit">Importar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-doc" class="dlg dlg-small">
+  <form method="dialog" class="dlg-inner">
+    <h1 id="doc-dlg-title">Documento</h1>
+    <label for="doc-dlg-name" class="label">Nome</label>
+    <input id="doc-dlg-name" class="input" autocomplete="off">
+    <label for="doc-dlg-group" class="label">Grupo</label>
+    <input id="doc-dlg-group" class="input" list="groups-list" autocomplete="off">
+    <div class="col">
+      <button value="pdf" class="btn btn-soft btn-block" type="submit">Exportar PDF marcado</button>
+      <button value="delete" class="btn btn-danger btn-block" type="submit">Excluir do app</button>
+    </div>
+    <div class="dlg-actions">
+      <button value="cancel" class="btn btn-outline" type="submit">Fechar</button>
+      <button value="save" class="btn btn-dark" type="submit">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="busy" class="busy" hidden><div class="busy-box"><div class="spinner"></div><span id="busy-text">Processando…</span></div></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

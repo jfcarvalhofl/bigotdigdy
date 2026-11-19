@@ -1,0 +1,3 @@
+# notes
+
+Personal static page.
