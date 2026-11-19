@@ -30,12 +30,13 @@ export async function openFinish() {
       [c(a => a.type !== 'ink' && a.color === 'yellow'), 'Amarelo · marcação', '#FBF6DC', '#4A4020'],
       [c(a => a.type !== 'ink' && a.color === 'orange'), 'Laranja · importante', '#FDEBD6', '#5A3410'],
       [c(a => a.type !== 'ink' && a.color === 'red'), 'Vermelho · atenção', '#FBE1DD', '#6A231B'],
+      [c(a => a.type !== 'ink' && (a.color === 'blue' || a.color === 'green')), 'Azul / verde', '#E3F0FB', '#16466F'],
       [c(a => a.doubt), 'Dúvidas', '#E6EAF0', '#13263A'],
       [groupInk(marks.filter(a => a.type === 'ink')).length, 'Anotações à mão', '#E3ECFB', '#143D8F']
     ];
     $('#fin-stats').innerHTML = '';
     for (const [n, l, bg, fg] of stats) $('#fin-stats').append(h('div', { class: 'stat', style: `background:${bg};color:${fg}` }, h('b', {}, String(n)), h('span', {}, l)));
-    $('#fin-stats').append(h('div', { class: 'stat', style: 'grid-column:span 2;background:#EEF5F5;color:#0B4E55;justify-content:center' },
+    $('#fin-stats').append(h('div', { class: 'stat', style: 'grid-column:span 1;background:#EEF5F5;color:#0B4E55;justify-content:center' },
       h('span', { style: 'font-size:12.5px;font-weight:700' }, 'Não marcado também vira nota'),
       h('span', {}, 'quando for conceito, regra, número ou definição cobrável')));
     $('#fin-size').textContent = 'Calculando tamanho…';
@@ -194,7 +195,7 @@ async function buildPackage(s, e, marks) {
       gerado_em: new Date().toISOString()
     },
     legenda: {
-      grifo_amarelo: 'marcação', grifo_laranja: 'mais importante', grifo_vermelho: 'extrema atenção',
+      grifo_amarelo: 'marcação', grifo_laranja: 'mais importante', grifo_vermelho: 'extrema atenção', grifo_azul: 'significado a definir', grifo_verde: 'significado a definir',
       duvida: 'marcador ? — explicar', caneta: 'anotação à mão: referência a outro documento, dúvida, reforço ou reflexão',
       unidades: 'pontos PDF, origem no canto superior esquerdo da página'
     },
@@ -300,6 +301,7 @@ async function wrapInPdf(zip, m, marks) {
   const c = k => marks.filter(k).length;
   line('Marcações: ' + marks.length, 12, fb);
   line('Amarelo (marcação): ' + c(x => x.cor === 'amarelo') + '   Laranja (mais importante): ' + c(x => x.cor === 'laranja') + '   Vermelho (atenção): ' + c(x => x.cor === 'vermelho'));
+  line('Azul: ' + c(x => x.cor === 'azul' && x.tipo !== 'caneta') + '   Verde: ' + c(x => x.cor === 'verde' && x.tipo !== 'caneta'));
   line('Dúvidas: ' + c(x => x.duvida) + '   Anotações à mão: ' + c(x => x.tipo === 'caneta'));
   line('Páginas com texto: ' + m.paginas.filter(p => p.tipo === 'texto').length + '   Páginas escaneadas: ' + m.paginas.filter(p => p.tipo === 'imagem').length);
   y -= 14;

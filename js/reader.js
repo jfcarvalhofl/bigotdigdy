@@ -298,12 +298,21 @@ export function bindInput() {
   document.body.append(h('div', { id: 'eraser-cursor', hidden: true }));
 }
 
+/* ---------- diagnóstico (toque na versão, na biblioteca) ---------- */
+export const DIAG = { on: false };
+function diag(e) {
+  if (!DIAG.on || !e?.type) return;
+  let box = $('#diag');
+  if (!box) { box = h('div', { id: 'diag' }); document.body.append(box); }
+  box.textContent = `${e.type} · tipo=${e.pointerType} · buttons=${e.buttons} · button=${e.button} · pressão=${(e.pressure ?? 0).toFixed(2)} · ferramenta=${R.tool} · ação=${act?.tool || '-'}`;
+}
+
 /* ---------- dedo: rolar com inércia e pinça ---------- */
 const touches = new Map();
 let pan = null, momentumRaf = 0, lastPenTime = 0;
 
 function touchDown(e) {
-  if (act || Date.now() - lastPenTime < 500) return;   // palma apoiada enquanto escreve
+  if (act || Date.now() - lastPenTime < 300) return;   // palma apoiada enquanto escreve
   touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try { pagesEl().setPointerCapture(e.pointerId); } catch {}
   cancelAnimationFrame(momentumRaf);
@@ -358,6 +367,7 @@ function eraserCursor(e, force = false) {
 }
 
 function onDown(e) {
+  diag(e);
   if (!R.doc) return;
   if (e.pointerType === 'touch') { touchDown(e); return; }   // dedo = rolar / pinça
   if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -425,8 +435,9 @@ function armHold() {
 }
 
 function onMove(e) {
+  diag(e);
   if (e.pointerType === 'touch') { touchMove(e); return; }
-  if (e.pointerType === 'pen') lastPenTime = Date.now();
+  if (e.pointerType === 'pen' && e.buttons) lastPenTime = Date.now();
   if (!act) { if (R.tool === 'eraser') eraserCursor(e); return; }
   if (act.tool === 'handle') { dragHandle(act, toUnits(act.p, e.clientX, e.clientY), e); return; }
   if (act.tool === 'move') { dragMove(act, toUnits(act.p, e.clientX, e.clientY)); return; }
@@ -468,6 +479,7 @@ function onMove(e) {
 }
 
 async function onUp(e) {
+  diag(e);
   if (e.pointerType === 'touch') { touchUp(e); return; }
   if (e.pointerType === 'pen') lastPenTime = Date.now();
   if (!act) return;
@@ -619,7 +631,7 @@ function distToPolyline(x, y, pts) {
 }
 function hitAnnot(p, ux, uy) {
   const tol = 10 / R.scale;
-  const list = R.annots.filter(a => a.page === p.n && !a.packaged);
+  const list = R.annots.filter(a => a.page === p.n);
   // com a caneta, a escrita à mão tem preferência; com o grifo, o grifo
   const preferInk = R.tool === 'pen';
   list.sort((a, b) => preferInk ? (b.type === 'ink') - (a.type === 'ink') : (a.type === 'ink') - (b.type === 'ink'));
@@ -637,7 +649,7 @@ function trySelect(p, tap) {
   // escrita à mão: seleciona a anotação inteira (traços próximos)
   let ids = [a.id];
   if (a.type === 'ink') {
-    const g = groupInk(R.annots.filter(q => q.type === 'ink' && q.page === p.n && !q.packaged)).find(gr => gr.some(q => q.id === a.id));
+    const g = groupInk(R.annots.filter(q => q.type === 'ink' && q.page === p.n)).find(gr => gr.some(q => q.id === a.id));
     if (g) ids = g.map(q => q.id);
   }
   showSelection(ids, p);
@@ -772,7 +784,7 @@ function inPoly(x, y, poly) {
 }
 function lassoPick(p, poly) {
   const ids = [];
-  for (const a of R.annots.filter(q => q.page === p.n && !q.packaged)) {
+  for (const a of R.annots.filter(q => q.page === p.n)) {
     const pts = a.type === 'text' ? a.rects.map(r => [(r[0] + r[2]) / 2, (r[1] + r[3]) / 2]) : a.points;
     const step = Math.max(1, Math.floor(pts.length / 40));
     let n = 0, inside = 0;
@@ -816,7 +828,7 @@ function eraseAt(x, y) {
   let changed = false;
   const mode = R.eraserMode;
   const allowed = an => mode === 'all' || (mode === 'ink' ? an.type === 'ink' : an.type !== 'ink');
-  for (const an of R.annots.filter(q => q.page === p.n && !q.packaged && q.doubt && mode !== 'ink')) {
+  for (const an of R.annots.filter(q => q.page === p.n && q.doubt && mode !== 'ink')) {
     const b = annotBBox(an);
     if (Math.hypot(cx - (b[2] + 7), cy - (b[1] + 2)) <= r + 6.5) {
       R.annots = R.annots.filter(q => q !== an);
@@ -826,7 +838,7 @@ function eraseAt(x, y) {
       (a.keep ||= new Set()).add(nw.id);   // tirar a dúvida não apaga o grifo
     }
   }
-  for (const an of R.annots.filter(q => q.page === p.n && !q.packaged && !a.keep?.has(q.id) && allowed(q))) {
+  for (const an of R.annots.filter(q => q.page === p.n && !a.keep?.has(q.id) && allowed(q))) {
     const b = annotBBox(an);
     if (cx < b[0] - r || cx > b[2] + r || cy < b[1] - r || cy > b[3] + r) continue;
     let pieces = null;
@@ -985,6 +997,8 @@ const FILTERS = [
   { id: 'yellow', dot: '#F5CF1F', aria: 'Marcação' },
   { id: 'orange', dot: '#F28C1E', aria: 'Mais importante' },
   { id: 'red', dot: '#E2584A', aria: 'Extrema atenção' },
+  { id: 'blue', dot: '#4F9DF2', aria: 'Azul' },
+  { id: 'green', dot: '#4DBB63', aria: 'Verde' },
   { id: 'doubt', label: '?', aria: 'Dúvidas' },
   { id: 'hand', pen: true, aria: 'À mão' }
 ];

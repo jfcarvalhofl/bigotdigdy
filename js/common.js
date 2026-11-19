@@ -1,8 +1,10 @@
-export const APP_VERSION = '1.3';
+export const APP_VERSION = '1.4';
 export const HL = [
   { id: 'yellow', hex: '#F5CF1F', fill: 'rgba(255,214,0,0.42)', label: 'Marcação', nome: 'amarelo', significado: 'marcação' },
   { id: 'orange', hex: '#F28C1E', fill: 'rgba(255,140,20,0.45)', label: 'Mais importante', nome: 'laranja', significado: 'mais importante' },
-  { id: 'red', hex: '#E2584A', fill: 'rgba(240,90,75,0.42)', label: 'Extrema atenção', nome: 'vermelho', significado: 'extrema atenção' }
+  { id: 'red', hex: '#E2584A', fill: 'rgba(240,90,75,0.42)', label: 'Extrema atenção', nome: 'vermelho', significado: 'extrema atenção' },
+  { id: 'blue', hex: '#4F9DF2', fill: 'rgba(70,150,245,0.36)', label: 'Azul', nome: 'azul', significado: 'azul (significado a definir)' },
+  { id: 'green', hex: '#4DBB63', fill: 'rgba(70,190,95,0.38)', label: 'Verde', nome: 'verde', significado: 'verde (significado a definir)' }
 ];
 export const PENS = [
   { id: 'red', hex: '#D32F2F', label: 'Vermelho', nome: 'vermelho' },
