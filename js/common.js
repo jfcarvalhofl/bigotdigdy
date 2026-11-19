@@ -1,3 +1,4 @@
+export const APP_VERSION = '1.1';
 export const HL = [
   { id: 'yellow', hex: '#F5CF1F', fill: 'rgba(255,214,0,0.42)', label: 'Marcação', nome: 'amarelo', significado: 'marcação' },
   { id: 'orange', hex: '#F28C1E', fill: 'rgba(255,140,20,0.45)', label: 'Mais importante', nome: 'laranja', significado: 'mais importante' },
