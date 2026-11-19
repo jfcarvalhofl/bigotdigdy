@@ -1,5 +1,5 @@
 // gerado por build-sw.py
-const VERSION = '4e8a9b4a23';
+const VERSION = '8b43983c40';
 const CACHE = 'pspp-' + VERSION;
 const RUNTIME = 'pspp-runtime';
 const PRECACHE = [

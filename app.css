@@ -330,3 +330,4 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-l
 #sel-pop{position:fixed;z-index:48;display:flex;align-items:center;gap:2px;padding:4px 6px;border-radius:14px;background:#1E3850;box-shadow:0 8px 24px rgba(10,20,30,.3)}
 #sel-pop .sep{width:1px;height:28px;background:#3B5873;margin:0 4px}
 #sel-pop [data-tip]::after{top:auto;bottom:calc(100% + 8px)}
+#sel-pop .sel-count{min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:#F2B544;color:#13263A;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 4px}
