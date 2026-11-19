@@ -94,11 +94,11 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-l
 .reader-body{flex:1;display:flex;min-height:0;background:#E7E5DF}
 .pages{flex:1;min-width:0;overflow:auto;position:relative;outline:none;touch-action:none;overscroll-behavior:contain}
 .pages-inner{display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 16px 120px;transform-origin:0 0;width:max-content;min-width:100%}
-.page{position:relative;background:#fff;box-shadow:0 2px 10px rgba(19,38,58,.14);flex-shrink:0;
+.page{position:relative;background:#fff;isolation:isolate;box-shadow:0 2px 10px rgba(19,38,58,.14);flex-shrink:0;
   --scale-round-x:1px;--scale-round-y:1px}
-.page canvas.render{position:absolute;inset:0;width:100%;height:100%}
-.page .textLayer{z-index:1}
-.page svg.overlay{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:visible;stroke:none;fill:none;stroke-width:0}
+.page canvas.render{position:absolute;inset:0;width:100%;height:100%;z-index:1;mix-blend-mode:multiply}
+.page .textLayer{z-index:2}
+.page svg.overlay{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;overflow:visible;stroke:none;fill:none;stroke-width:0}
 .page .pnum{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:11px;color:#8A867C}
 .page .ribbon{position:absolute;top:-4px;right:18px;width:22px;height:34px;z-index:3;background:var(--teal);clip-path:polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)}
 .page .marker{position:absolute;left:-12px;right:-12px;z-index:3;display:flex;align-items:center;gap:8px;pointer-events:none;transform:translateY(-50%)}
@@ -333,3 +333,4 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-l
 #sel-pop .sel-count{min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:#F2B544;color:#13263A;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 4px}
 #diag{position:fixed;left:8px;bottom:8px;z-index:70;padding:6px 10px;border-radius:8px;background:rgba(10,22,34,.88);color:#9FE0C0;font:12px ui-monospace,monospace;pointer-events:none;max-width:96vw}
 .ver{cursor:pointer}
+.page svg.overlay.hl{z-index:0}

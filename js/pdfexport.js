@@ -75,9 +75,9 @@ function highlightAnnot(ctx, a, P) {
     const [tl, tr, bl, br] = quads.slice(i, i + 4);
     ops += `${num(tl[0])} ${num(tl[1])} m ${num(tr[0])} ${num(tr[1])} l ${num(br[0])} ${num(br[1])} l ${num(bl[0])} ${num(bl[1])} l h f\n`;
   }
-  const ap = ctx.stream(ops, { Type: 'XObject', Subtype: 'Form', BBox: bb.map(num), Resources: { ExtGState: { GS0: gs(ctx, 0.45, true) } } });
+  const ap = ctx.stream(ops, { Type: 'XObject', Subtype: 'Form', BBox: bb.map(num), Resources: { ExtGState: { GS0: gs(ctx, 1, true) } } });
   const dict = ctx.obj({
-    ...common(a), Subtype: 'Highlight', Rect: bb.map(num), C: rgb.map(num), CA: 0.45,
+    ...common(a), Subtype: 'Highlight', Rect: bb.map(num), C: rgb.map(num), CA: 1,
     QuadPoints: quads.flat().map(num), AP: { N: ctx.register(ap) }
   });
   return ctx.register(dict);
@@ -91,7 +91,7 @@ function inkAnnot(ctx, a, P) {
   const w = a.width;
   const b = bboxOf(pts);
   const bb = [b[0] - w, b[1] - w, b[2] + w, b[3] + w];
-  const alpha = free ? 0.42 : 1;
+  const alpha = 1;
   let ops = `/GS0 gs ${rgb.map(num).join(' ')} RG ${num(w)} w 1 J 1 j\n`;
   ops += pts.map((p, i) => `${num(p[0])} ${num(p[1])} ${i ? 'l' : 'm'}`).join(' ') + ' S\n';
   const ap = ctx.stream(ops, { Type: 'XObject', Subtype: 'Form', BBox: bb.map(num), Resources: { ExtGState: { GS0: gs(ctx, alpha, free) } } });

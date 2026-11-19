@@ -103,11 +103,11 @@ function paintAnnots(ctx, list, scale) {
   for (const a of list) {
     if (a.type === 'text') {
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = hlById(a.color).fill;
+      ctx.fillStyle = hlById(a.color).hex;
       for (const r of a.rects) ctx.fillRect(r[0], r[1], r[2] - r[0], r[3] - r[1]);
     } else {
       ctx.globalCompositeOperation = a.type === 'free' ? 'multiply' : 'source-over';
-      ctx.globalAlpha = a.type === 'free' ? 0.42 : 1;
+      ctx.globalAlpha = 1;
       ctx.strokeStyle = a.type === 'free' ? hlById(a.color).hex : penById(a.color).hex;
       ctx.lineWidth = a.width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -231,7 +231,7 @@ async function buildPackage(s, e, marks) {
   for (const a of marks.filter(m => m.type !== 'ink')) {
     const c = hlById(a.color);
     const m = { id: a.id, tipo: a.type === 'text' ? 'grifo' : 'marca-texto', cor: c.nome, significado: c.significado, duvida: !!a.doubt, pagina: a.page, y: Math.round(a.top), criado_em: new Date(a.createdAt).toISOString() };
-    if (a.type === 'text') {
+    if (a.type === 'text' && a.text) {
       m.texto = a.text;
       const b = annotBBox(a);
       const items = await getItems(a.page);

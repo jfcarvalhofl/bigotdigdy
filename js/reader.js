@@ -6,7 +6,7 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const FREE_W = 11;      // espessura do marca-texto livre (pontos PDF)
 const PEN_W = 1.5;      // espessura da caneta (pontos PDF)
 const HOLD_MS = 550;    // segurar parado no fim do traço → endireita
-export const ERASER_MODES = [{ id: 'all', label: 'Apaga tudo' }, { id: 'ink', label: 'Só caneta' }, { id: 'hl', label: 'Só grifo' }];
+export const ERASER_MODES = [{ id: 'all', label: 'Apaga tudo' }, { id: 'ink', label: 'Só caneta' }, { id: 'hl', label: 'Só grifo e marca-texto' }];
 export const ERASERS = [{ id: 's', d: 14, label: 'Borracha pequena' }, { id: 'm', d: 30, label: 'Borracha média' }, { id: 'l', d: 60, label: 'Borracha grande' }];
 
 export const R = {
@@ -63,13 +63,11 @@ async function buildPages() {
     const page = await R.pdf.getPage(n);
     const vp = page.getViewport({ scale: 1 });
     const el = h('div', { class: 'page', 'data-page': n });
-    const svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('class', 'overlay');
-    svg.setAttribute('viewBox', `0 0 ${vp.width} ${vp.height}`);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    el.append(h('div', { class: 'loading' }, 'p. ' + n), svg, h('div', { class: 'pnum' }, String(n)));
+    const mk = cls => { const v = document.createElementNS(SVGNS, 'svg'); v.setAttribute('class', 'overlay ' + cls); v.setAttribute('viewBox', `0 0 ${vp.width} ${vp.height}`); v.setAttribute('preserveAspectRatio', 'none'); return v; };
+    const hl = mk('hl'), svg = mk('ink');
+    el.append(hl, h('div', { class: 'loading' }, 'p. ' + n), svg, h('div', { class: 'pnum' }, String(n)));
     innerEl().append(el);
-    R.pages.push({ n, page, w1: vp.width, h1: vp.height, el, svg, canvas: null, textDiv: null, renderedScale: 0, task: null, hasText: null });
+    R.pages.push({ n, page, w1: vp.width, h1: vp.height, el, svg, hl, canvas: null, textDiv: null, renderedScale: 0, task: null, hasText: null });
   }
   io?.disconnect();
   io = new IntersectionObserver(onIntersect, { root: pagesEl(), rootMargin: '900px 0px' });
@@ -174,29 +172,31 @@ const ptsAttr = pts => pts.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).joi
 function shapeFor(a) {
   const g = svgEl('g', { 'data-id': a.id });
   if (a.type === 'text') {
-    for (const r of a.rects) g.append(svgEl('rect', { x: r[0], y: r[1], width: r[2] - r[0], height: r[3] - r[1], fill: hlById(a.color).fill, style: 'mix-blend-mode:multiply' }));
+    for (const r of a.rects) g.append(svgEl('rect', { x: r[0], y: r[1], width: r[2] - r[0], height: r[3] - r[1], fill: hlById(a.color).hex }));
   } else if (a.type === 'free') {
-    g.append(svgEl('polyline', { points: ptsAttr(a.points), fill: 'none', stroke: hlById(a.color).hex, 'stroke-width': a.width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.42, style: 'mix-blend-mode:multiply' }));
+    g.append(svgEl('polyline', { points: ptsAttr(a.points), fill: 'none', stroke: hlById(a.color).hex, 'stroke-width': a.width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   } else {
     g.append(svgEl('polyline', { points: ptsAttr(a.points), fill: 'none', stroke: penById(a.color).hex, 'stroke-width': a.width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   }
-  if (a.doubt) {
-    const b = annotBBox(a);
-    const cx = b[2] + 7, cy = b[1] + 2;
-    g.append(svgEl('circle', { cx, cy, r: 6.5, fill: '#13263A' }));
-    const t = svgEl('text', { x: cx, y: cy + 3.4, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 800, fill: '#fff', 'font-family': 'system-ui,sans-serif' });
-    t.textContent = '?';
-    g.append(t);
-  }
+  return g;
+}
+function badgeFor(a) {
+  const g = svgEl('g', { 'data-id': a.id, class: 'badge' });
+  const b = annotBBox(a);
+  const cx = b[2] + 7, cy = b[1] + 2;
+  g.append(svgEl('circle', { cx, cy, r: 6.5, fill: '#13263A' }));
+  const t = svgEl('text', { x: cx, y: cy + 3.4, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 800, fill: '#fff', 'font-family': 'system-ui,sans-serif' });
+  t.textContent = '?';
+  g.append(t);
   return g;
 }
 
 export function drawOverlay(p) {
   p.svg.querySelectorAll('g[data-id]').forEach(n => n.remove());
+  p.hl.querySelectorAll('g[data-id]').forEach(n => n.remove());
   const list = R.annots.filter(a => a.page === p.n);
-  // marca-texto por baixo, caneta por cima
-  list.sort((a, b) => (a.type === 'ink') - (b.type === 'ink'));
-  for (const a of list) p.svg.append(shapeFor(a));
+  for (const a of list) (a.type === 'ink' ? p.svg : p.hl).append(shapeFor(a));
+  for (const a of list) if (a.doubt) p.svg.append(badgeFor(a));
   if (sel && sel.page === p.n && p.svg.querySelector('.sel-box')) p.svg.append(p.svg.querySelector('.sel-box'));
 }
 
@@ -406,7 +406,7 @@ function onDown(e) {
   if (tool === 'text' && p.textDiv && p.hasText) {
     const start = caretAt(p, e.clientX, e.clientY);
     act = { tool: 'text', p, start, preview: svgEl('g', {}), tap: [e.clientX, e.clientY] };
-    p.svg.append(act.preview);
+    p.hl.append(act.preview);
     return;
   }
   // marca-texto livre (também no escaneado com a ferramenta de grifo) ou caneta
@@ -415,8 +415,8 @@ function onDown(e) {
   const color = type === 'ink' ? R.pen : R.color;
   const line = svgEl('polyline', type === 'ink'
     ? { fill: 'none', stroke: penById(color).hex, 'stroke-width': width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }
-    : { fill: 'none', stroke: hlById(color).hex, 'stroke-width': width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.42, style: 'mix-blend-mode:multiply' });
-  p.svg.append(line);
+    : { fill: 'none', stroke: hlById(color).hex, 'stroke-width': width, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+  (type === 'ink' ? p.svg : p.hl).append(line);
   const snap = tool === 'text';   // ferramenta de grifo numa página sem texto reconhecido
   if (snap && !noTextWarned.has(p.n)) { noTextWarned.add(p.n); toast(p.hasText == null ? 'Página ainda carregando o texto: grifo em linha reta.' : 'Página sem texto reconhecido (escaneada): o grifo sai em linha reta.', 2600); }
   act = { tool: type, p, points: [pt], line, color, width, straight: false, hold: 0, tap: [e.clientX, e.clientY], snap };
@@ -458,7 +458,7 @@ function onMove(e) {
     act.end = end;
     const rects = rangeRects(act.p, act.start, end);
     act.preview.innerHTML = '';
-    for (const r of rects) act.preview.append(svgEl('rect', { x: r[0], y: r[1], width: r[2] - r[0], height: r[3] - r[1], fill: hlById(R.color).fill, style: 'mix-blend-mode:multiply' }));
+    for (const r of rects) act.preview.append(svgEl('rect', { x: r[0], y: r[1], width: r[2] - r[0], height: r[3] - r[1], fill: hlById(R.color).hex }));
     act.rects = rects;
     return;
   }
@@ -474,7 +474,17 @@ function onMove(e) {
     act.points.push(pt);
     if (act.tool === 'free' && Math.hypot(pt[0] - last[0], pt[1] - last[1]) > 1.2) armHold();
   }
-  if (act.snap) { const a0 = act.points[0], z = act.points[act.points.length - 1]; act.line.setAttribute('points', ptsAttr([a0, [z[0], a0[1]]])); }
+  if (act.snap) {
+    const a0 = act.points[0], z = act.points[act.points.length - 1];
+    const rr = imageRects(act.p, a0, z);
+    act.imgRects = rr;
+    if (rr) {
+      act.line.setAttribute('points', '');
+      if (!act.preview) { act.preview = svgEl('g', {}); act.p.hl.append(act.preview); }
+      act.preview.innerHTML = '';
+      for (const r of rr) act.preview.append(svgEl('rect', { x: r[0], y: r[1], width: r[2] - r[0], height: r[3] - r[1], fill: hlById(act.color).hex }));
+    } else { act.preview?.replaceChildren(); act.line.setAttribute('points', ptsAttr([a0, [z[0], a0[1]]])); }
+  }
   else if (!act.straight) act.line.setAttribute('points', ptsAttr(act.points));
 }
 
@@ -512,14 +522,21 @@ async function onUp(e) {
     if (!rects.length || !a.end) { trySelect(a.p, a.tap); return; }
     const text = rangeText(a.start, a.end);
     if (!text.trim()) return;
-    await addAnnot({ type: 'text', page: a.p.n, color: R.color, doubt: R.doubt, rects, text, top: Math.min(...rects.map(r => r[1])) });
+    const fit = refineRects(a.p, rects);
+    await addAnnot({ type: 'text', page: a.p.n, color: R.color, doubt: R.doubt, rects: fit, text, top: Math.min(...fit.map(r => r[1])) });
     return;
   }
   a.line.remove();
+  a.preview?.remove();
   let pts = a.points;
   let len = 0;
   for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
   if (len < 3 && trySelect(a.p, a.tap)) return;
+  if (a.snap && len >= 3 && a.imgRects) {
+    const rr = a.imgRects;
+    await addAnnot({ type: 'text', page: a.p.n, color: a.color, doubt: R.doubt, rects: rr, text: '', imageSnap: true, top: Math.min(...rr.map(r => r[1])) });
+    return;
+  }
   if (a.snap && len >= 3) {
     // linha reta na altura média do traço
     const xs = pts.map(q => q[0]), ym = pts.reduce((t, q) => t + q[1], 0) / pts.length;
@@ -543,6 +560,107 @@ function onCancel(e) {
   // traço interrompido pelo sistema: salva o que já foi desenhado em vez de perder
   if (['free', 'ink', 'text', 'handle', 'move', 'lasso'].includes(act.tool)) { onUp({ pointerType: 'pen' }); return; }
   act = null;
+}
+
+/* ---------- linhas de letras detectadas na imagem da página ---------- */
+// Serve para o grifo encaixar exatamente sobre as letras, como no Xodo,
+// inclusive em PDF escaneado (sem camada de texto).
+function inkInfo(p) {
+  if (!p.canvas) return null;
+  if (p._ink && p._ink.src === p.canvas) return p._ink;
+  const W = Math.min(p.canvas.width, 1600), k = W / p.w1, H = Math.round(p.h1 * k);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const cx = c.getContext('2d', { willReadFrequently: true });
+  cx.fillStyle = '#fff'; cx.fillRect(0, 0, W, H);
+  cx.drawImage(p.canvas, 0, 0, W, H);
+  const d = cx.getImageData(0, 0, W, H).data;
+  const mask = new Uint8Array(W * H);
+  const rows = new Uint32Array(H);
+  for (let y = 0, i = 0; y < H; y++) for (let x = 0; x < W; x++, i += 4) {
+    if (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11 < 150) { mask[y * W + x] = 1; rows[y]++; }
+  }
+  // faixas de linhas: sequências de linhas de pixels com tinta
+  const minRow = Math.max(2, Math.round(W * 0.002));
+  let bands = [], cur = null;
+  for (let y = 0; y < H; y++) {
+    if (rows[y] >= minRow) { if (cur && y - cur.y1 <= 2) cur.y1 = y; else { cur = { y0: y, y1: y }; bands.push(cur); } }
+  }
+  // junta acentos e pingos com a linha
+  const merged = [];
+  for (const b of bands) {
+    const last = merged[merged.length - 1];
+    const hb = b.y1 - b.y0 + 1;
+    if (last && b.y0 - last.y1 <= Math.max(2, 0.3 * Math.min(hb, last.y1 - last.y0 + 1)) && (hb < 0.45 * (last.y1 - last.y0 + 1) || (last.y1 - last.y0 + 1) < 0.45 * hb)) last.y1 = b.y1;
+    else merged.push({ ...b });
+  }
+  bands = merged.filter(b => (b.y1 - b.y0 + 1) >= 3 * k / 2 && (b.y1 - b.y0 + 1) <= 70 * k);
+  p._ink = { src: p.canvas, W, H, k, mask, bands };
+  return p._ink;
+}
+function bandCols(I, b) {
+  if (b.cols) return b.cols;
+  const cols = new Uint16Array(I.W);
+  for (let y = b.y0; y <= b.y1; y++) { const o = y * I.W; for (let x = 0; x < I.W; x++) if (I.mask[o + x]) cols[x]++; }
+  let L = 0, Rr = I.W - 1;
+  while (L < I.W && !cols[L]) L++;
+  while (Rr > 0 && !cols[Rr]) Rr--;
+  b.cols = cols; b.L = L; b.R = Rr;
+  return cols;
+}
+function bandAt(I, yu) {
+  const y = yu * I.k;
+  let best = null, bd = Infinity;
+  for (const b of I.bands) {
+    const pad = (b.y1 - b.y0) * 0.35;
+    const d = y < b.y0 - pad ? b.y0 - pad - y : y > b.y1 + pad ? y - b.y1 - pad : 0;
+    if (d < bd) { bd = d; best = b; }
+  }
+  return bd <= 14 * I.k ? best : null;
+}
+// borda da palavra: anda até achar um espaço maior que o vão entre letras
+function wordEdge(I, b, xu, dir) {
+  const cols = bandCols(I, b);
+  const gap = Math.max(2, Math.round((b.y1 - b.y0 + 1) * 0.28));
+  let x = Math.max(b.L, Math.min(b.R, Math.round(xu * I.k)));
+  if (!cols[x]) {
+    // no espaço entre palavras: vai para a palavra na direção oposta à borda procurada
+    const step = dir < 0 ? 1 : -1;
+    while (x >= b.L && x <= b.R && !cols[x]) x += step;
+    x = Math.max(b.L, Math.min(b.R, x));
+  }
+  let empty = 0, edge = x;
+  for (let i = x; i >= b.L && i <= b.R; i += dir) {
+    if (cols[i]) { empty = 0; edge = i; } else if (++empty >= gap) break;
+  }
+  return edge / I.k;
+}
+function imageRects(p, a, z) {
+  const I = inkInfo(p); if (!I || !I.bands.length) return null;
+  let b1 = bandAt(I, a[1]), b2 = bandAt(I, z[1]);
+  if (!b1 || !b2) return null;
+  let s = a, e = z;
+  if (b2.y0 < b1.y0 || (b1 === b2 && z[0] < a[0])) { [b1, b2] = [b2, b1]; [s, e] = [e, s]; }
+  const i1 = I.bands.indexOf(b1), i2 = I.bands.indexOf(b2);
+  const pad = 1.2, out = [];
+  for (let i = i1; i <= i2; i++) {
+    const b = I.bands[i]; bandCols(I, b);
+    const x0 = i === i1 ? wordEdge(I, b, s[0], -1) : b.L / I.k;
+    const x1 = i === i2 ? wordEdge(I, b, e[0], 1) + 1 / I.k : (b.R + 1) / I.k;
+    if (x1 - x0 < 1) continue;
+    out.push([x0 - 0.8, b.y0 / I.k - pad, x1 + 0.8, (b.y1 + 1) / I.k + pad].map(v => Math.round(v * 10) / 10));
+  }
+  return out.length ? out : null;
+}
+// grifo de texto: ajusta a altura de cada linha às letras de verdade
+function refineRects(p, rects) {
+  const I = inkInfo(p); if (!I || !I.bands.length) return rects;
+  return rects.map(r => {
+    const y0 = r[1] * I.k, y1 = r[3] * I.k;
+    let best = null, bo = 0;
+    for (const b of I.bands) { const o = Math.min(y1, b.y1 + 1) - Math.max(y0, b.y0); if (o > bo) { bo = o; best = b; } }
+    if (!best || bo < 0.35 * (y1 - y0)) return r;
+    return [r[0], Math.round((best.y0 / I.k - 1.2) * 10) / 10, r[2], Math.round(((best.y1 + 1) / I.k + 1.2) * 10) / 10];
+  });
 }
 
 /* ---------- seleção de texto (grifo que segue a linha) ---------- */
@@ -743,7 +861,13 @@ async function editSel(filter, change) {
 function dragHandle(a, pt, e) {
   const it = selItems()[0]; if (!it) return;
   const old = a.prev[0];
-  if (it.type === 'text') {
+  if (it.type === 'text' && it.imageSnap) {
+    const f = old.rects[0], l = old.rects[old.rects.length - 1];
+    const fixed = a.which === 'start' ? [l[2] - 1, (l[1] + l[3]) / 2] : [f[0] + 1, (f[1] + f[3]) / 2];
+    const rr = imageRects(a.p, fixed, [pt[0], pt[1] - 10]);
+    if (!rr) return;
+    it.rects = rr; it.top = Math.min(...rr.map(r => r[1]));
+  } else if (it.type === 'text') {
     const pr = a.p.el.getBoundingClientRect();
     const f = old.rects[0], l = old.rects[old.rects.length - 1];
     const fixed = a.which === 'start' ? [l[2] - 0.6, (l[1] + l[3]) / 2] : [f[0] + 0.6, (f[1] + f[3]) / 2];
@@ -753,7 +877,8 @@ function dragHandle(a, pt, e) {
     const c1 = caretAt(a.p, fx, fy), c2 = caretAt(a.p, mx, my);
     const rects = rangeRects(a.p, c1, c2);
     if (!rects.length) return;
-    it.rects = rects; it.text = rangeText(c1, c2); it.top = Math.min(...rects.map(r => r[1]));
+    const fit = refineRects(a.p, rects);
+    it.rects = fit; it.text = rangeText(c1, c2); it.top = Math.min(...fit.map(r => r[1]));
   } else {
     const i = a.which === 'p0' ? 0 : 1, o = old.points[1 - i];
     it.points[i] = [Math.round(pt[0] * 10) / 10, Math.abs(pt[1] - o[1]) < 14 ? o[1] : Math.round(pt[1] * 10) / 10];
@@ -1027,7 +1152,7 @@ export function updatePanel() {
   }
   items.sort((x, y) => posKey(x.a.page, x.a.top) - posKey(y.a.page, y.a.top));
   for (const { a, ids, cores } of items) {
-    const label = a.type === 'text' ? a.text : a.type === 'free' ? 'Marca-texto livre' : 'Anotação à mão · ' + cores.join(', ');
+    const label = a.type === 'text' ? (a.text || 'Grifo em página escaneada') : a.type === 'free' ? 'Marca-texto livre' : 'Anotação à mão · ' + cores.join(', ');
     L.append(h('div', { class: 'mitem', onclick: () => scrollToPos(a.page, a.top - 40) },
       h('div', { class: 'mitem-top' },
         h('span', { class: 'dot' + (a.type === 'ink' ? ' sq' : ''), style: 'background:' + colorOf(a) }),
